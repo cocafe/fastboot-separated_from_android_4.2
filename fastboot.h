@@ -37,6 +37,7 @@ struct sparse_file;
 int fb_command(usb_handle *usb, const char *cmd);
 int fb_command_response(usb_handle *usb, const char *cmd, char *response);
 int fb_download_data(usb_handle *usb, const void *data, unsigned size);
+int fb_download_data_fd(usb_handle *usb, const int fd, unsigned size);
 int fb_download_data_sparse(usb_handle *usb, struct sparse_file *s);
 char *fb_get_error(void);
 
@@ -47,6 +48,7 @@ char *fb_get_error(void);
 int fb_getvar(struct usb_handle *usb, char *response, const char *fmt, ...);
 int fb_format_supported(usb_handle *usb, const char *partition);
 void fb_queue_flash(const char *ptn, void *data, unsigned sz);
+void fb_queue_flash_fd(const char *ptn, int fd, unsigned sz);
 void fb_queue_flash_sparse(const char *ptn, struct sparse_file *s, unsigned sz);
 void fb_queue_erase(const char *ptn);
 void fb_queue_format(const char *ptn, int skip_if_not_supported);

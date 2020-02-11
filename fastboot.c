@@ -76,6 +76,8 @@ static int64_t target_sparse_limit = -1;
 
 static unsigned base_addr = 0x10000000;
 
+int full_read = 1;
+
 void die(const char *fmt, ...)
 {
     va_list ap;
@@ -150,6 +152,32 @@ int64_t file_size(const char *fn)
     close(fd);
 
     return off;
+}
+
+int open_file(const char *path, unsigned *_sz, int *_fd)
+{
+    int fd = 0;
+    int sz;
+
+    fd = open(path, O_RDONLY);
+    if (fd < 0)
+        return -EIO;
+
+    sz = lseek(fd, 0, SEEK_END);
+    if (sz < 0)
+        goto err;
+
+    if (lseek(fd, 0, SEEK_SET) != 0)
+        goto err;
+
+    *_sz = sz;
+    *_fd = fd;
+
+    return 0;
+
+err:
+    close(fd);
+    return -EIO;
 }
 
 void *load_file(const char *fn, unsigned *_sz)
@@ -301,6 +329,8 @@ void usage(void)
             "  -n <page size>                           specify the nand page size. default: 2048\n"
             "  -S <size>[K|M|G]                         automatically sparse files greater than\n"
             "                                           size.  0 to disable\n"
+            "  -m                                       optimize for poor device does not\n"
+            "                                           have sufficient memory to hold full image\n"
         );
 }
 
@@ -582,9 +612,12 @@ void do_flash(usb_handle *usb, const char *pname, const char *fname)
     int64_t sz64;
     void *data;
     int64_t limit;
+    unsigned int sz;
+    int fd;
 
     sz64 = file_size(fname);
     limit = get_sparse_limit(usb, sz64);
+
     if (limit) {
         struct sparse_file **s = load_sparse_files(fname, limit);
         if (s == NULL) {
@@ -594,12 +627,23 @@ void do_flash(usb_handle *usb, const char *pname, const char *fname)
             sz64 = sparse_file_len(*s, true, false);
             fb_queue_flash_sparse(pname, *s++, sz64);
         }
-    } else {
-        unsigned int sz;
+
+        return;
+    }
+
+    if (full_read) {
         data = load_file(fname, &sz);
         if (data == 0) die("cannot load '%s': %s\n", fname, strerror(errno));
         fb_queue_flash(pname, data, sz);
+
+        return;
     }
+
+    // partial read
+    if (open_file(fname, &sz, &fd))
+        die("cannot open file '%s': %s\n", fname, strerror(errno));
+
+    fb_queue_flash_fd(pname, fd, sz);
 }
 
 void do_update_signature(zipfile_t zip, char *fn)
@@ -816,7 +860,7 @@ int main(int argc, char **argv)
     serial = getenv("ANDROID_SERIAL");
 
     while (1) {
-        c = getopt_long(argc, argv, "wub:n:s:S:lp:c:i:m:h", &longopts, NULL);
+        c = getopt_long(argc, argv, "wmub:n:s:S:lp:c:i:m:h", &longopts, NULL);
         if (c < 0) {
             break;
         }
@@ -852,6 +896,9 @@ int main(int argc, char **argv)
             break;
         case 'c':
             cmdline = optarg;
+            break;
+        case 'm':
+            full_read = 0;
             break;
         case 'i': {
                 char *endptr = NULL;

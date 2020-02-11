@@ -33,6 +33,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 
@@ -149,6 +150,43 @@ static int _command_data(usb_handle *usb, const void *data, unsigned size)
     return r;
 }
 
+#define IMAGE_FILE_READ_BUFF            (4 * 1024 * 1024)
+
+extern int full_read;
+
+static int _command_data_fd(usb_handle *usb, int fd, unsigned size)
+{
+    unsigned long sz = 0;
+    char *buf;
+    int r;
+
+    buf = calloc(1, IMAGE_FILE_READ_BUFF);
+    if (!buf)
+        die("unable to allocate image file buffer");
+
+    while (sz < size) {
+        r = read(fd, buf, IMAGE_FILE_READ_BUFF);
+        if (r < 0)
+            goto out;
+
+        sz += r;
+
+        printf("%lu%% (%lu/%u)\n", sz * (unsigned)100 / size, sz, size);
+
+        r = usb_write(usb, buf, r);
+        if (r < 0) {
+            printf("%s: usb_write() failure\n", __func__);
+            usb_close(usb);
+            goto out;
+        }
+    }
+
+out:
+    free(buf);
+
+    return r;
+}
+
 static int _command_end(usb_handle *usb)
 {
     int r;
@@ -159,9 +197,9 @@ static int _command_end(usb_handle *usb)
     return 0;
 }
 
-static int _command_send(usb_handle *usb, const char *cmd,
-                         const void *data, unsigned size,
-                         char *response)
+static int __command_send(usb_handle *usb, const char *cmd,
+                          const void *data, unsigned size,
+                          char *response, int fd)
 {
     int r;
     if (size == 0) {
@@ -173,7 +211,12 @@ static int _command_send(usb_handle *usb, const char *cmd,
         return -1;
     }
 
-    r = _command_data(usb, data, size);
+    if (full_read) {
+        r = _command_data(usb, data, size);
+    } else {
+        r = _command_data_fd(usb, fd, size);
+    }
+
     if (r < 0) {
         return -1;
     }
@@ -184,6 +227,13 @@ static int _command_send(usb_handle *usb, const char *cmd,
     }
 
     return size;
+}
+
+static inline int _command_send(usb_handle *usb, const char *cmd,
+                         const void *data, unsigned size,
+                         char *response)
+{
+    return __command_send(usb, cmd, data, size, response, 0);
 }
 
 static int _command_send_no_data(usb_handle *usb, const char *cmd,
@@ -210,6 +260,7 @@ int fb_download_data(usb_handle *usb, const void *data, unsigned size)
     int r;
 
     sprintf(cmd, "download:%08x", size);
+
     r = _command_send(usb, cmd, data, size, 0);
 
     if(r < 0) {
@@ -217,6 +268,21 @@ int fb_download_data(usb_handle *usb, const void *data, unsigned size)
     } else {
         return 0;
     }
+}
+
+int fb_download_data_fd(usb_handle *usb, const int fd, unsigned size)
+{
+    char cmd[64];
+    int r;
+
+    sprintf(cmd, "download:%08x", size);
+
+    r = __command_send(usb, cmd, NULL, size, 0, fd);
+
+    if (r < 0)
+        return -1;
+
+    return 0;
 }
 
 #define USB_BUF_SIZE 512
