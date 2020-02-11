@@ -73,13 +73,10 @@ CPPFLAGS+= -I ./libselinux/include
 CFLAGS+= -O2 -g -Wall -Wno-unused-parameter -fPIC
 LDFLAGS= -static
  
-TOOLCHAIN= arm-linux-
-#TOOLCHAIN= 
-CC= $(TOOLCHAIN)gcc
-LD= $(TOOLCHAIN)gcc
-
-#CC= gcc
-#LD= gcc
+CROSS_COMPILE=
+# CROSS_COMPILE= arm-linux-gnueabihf-
+CC= $(CROSS_COMPILE)gcc
+LD= $(CROSS_COMPILE)gcc
 
 OBJS= $(SRCS:.c=.o)
  
@@ -87,6 +84,6 @@ all: fastboot
  
 fastboot: $(OBJS)
 	$(LD) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
- 
+
 clean:
 	rm -rf $(OBJS)
