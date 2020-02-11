@@ -171,7 +171,11 @@ static int _command_data_fd(usb_handle *usb, int fd, unsigned size)
 
         sz += r;
 
-        printf("%lu%% (%lu/%u)\n", sz * (unsigned)100 / size, sz, size);
+#ifdef __mips // it looks like mipsel gcc has bug... got incorrect number
+        printf("%3.0f%% (%lu/%u)\n", sz * 100.0 / size, sz, size);
+#else
+        printf("%3lu%% (%lu/%u)\n", sz * (unsigned)100 / size, sz, size);
+#endif
 
         r = usb_write(usb, buf, r);
         if (r < 0) {
