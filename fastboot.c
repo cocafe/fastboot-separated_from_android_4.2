@@ -77,6 +77,7 @@ static int64_t target_sparse_limit = -1;
 static unsigned base_addr = 0x10000000;
 
 int full_read = 1;
+int read_bufsz = 0;
 
 void die(const char *fmt, ...)
 {
@@ -331,6 +332,7 @@ void usage(void)
             "                                           size.  0 to disable\n"
             "  -m                                       optimize for poor device does not\n"
             "                                           have sufficient memory to hold full image\n"
+            "  -z <size>[K|M|G]                         in memory buffer size, default 4MB\n"
         );
 }
 
@@ -860,7 +862,7 @@ int main(int argc, char **argv)
     serial = getenv("ANDROID_SERIAL");
 
     while (1) {
-        c = getopt_long(argc, argv, "wmub:n:s:S:lp:c:i:m:h", &longopts, NULL);
+        c = getopt_long(argc, argv, "wmuz:b:n:s:S:lp:c:i:m:h", &longopts, NULL);
         if (c < 0) {
             break;
         }
@@ -886,6 +888,12 @@ int main(int argc, char **argv)
             sparse_limit = parse_num(optarg);
             if (sparse_limit < 0) {
                     die("invalid sparse limit");
+            }
+            break;
+        case 'z':
+            read_bufsz = parse_num(optarg);
+            if (read_bufsz < 0) {
+                    die("invalid in-memory buffer size");
             }
             break;
         case 'l':

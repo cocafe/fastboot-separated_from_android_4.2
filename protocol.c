@@ -153,19 +153,22 @@ static int _command_data(usb_handle *usb, const void *data, unsigned size)
 #define IMAGE_FILE_READ_BUFF            (4 * 1024 * 1024)
 
 extern int full_read;
+extern int read_bufsz;
 
 static int _command_data_fd(usb_handle *usb, int fd, unsigned size)
 {
     unsigned long sz = 0;
+    size_t bufsz;
     char *buf;
     int r;
 
-    buf = calloc(1, IMAGE_FILE_READ_BUFF);
+    bufsz = (read_bufsz > 0) ? read_bufsz : IMAGE_FILE_READ_BUFF;
+    buf = calloc(1, bufsz);
     if (!buf)
         die("unable to allocate image file buffer");
 
     while (sz < size) {
-        r = read(fd, buf, IMAGE_FILE_READ_BUFF);
+        r = read(fd, buf, bufsz);
         if (r < 0)
             goto out;
 
