@@ -33,6 +33,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
@@ -174,11 +175,7 @@ static int _command_data_fd(usb_handle *usb, int fd, unsigned size)
 
         sz += r;
 
-#ifdef __mips // it looks like mipsel gcc has bug... got incorrect number
-        printf("%3.0f%% (%lu/%u)\n", sz * 100.0 / size, sz, size);
-#else
-        printf("%3lu%% (%lu/%u)\n", sz * (unsigned)100 / size, sz, size);
-#endif
+        printf("%3ju%% (%lu/%u)\n", (uint64_t)sz * (uint64_t)100 / size, sz, size);
 
         r = usb_write(usb, buf, r);
         if (r < 0) {
